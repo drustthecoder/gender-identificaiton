@@ -87,3 +87,13 @@ def logpdf_GAU_ND_fast(X, mu, C):
     v = (XC * numpy.dot(L, XC)).sum(0)
     # The dot product produces Lx1, Lx2, ...
     return const - 0.5 * logdet - 0.5 * v
+
+
+def get_ml_mu_sigma(D):
+    mu = vcol(D.mean(1))
+    C = numpy.dot(D - mu, (D - mu).T) / D.shape[1]
+    return mu, C
+
+
+def loglikelihood(X, mu, C):
+    return numpy.sum(logpdf_GAU_ND_fast(X, mu, C))
