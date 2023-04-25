@@ -1,6 +1,11 @@
 from mlpr import *
-
 import matplotlib.pyplot as plt
+
+# D, L = load_iris()
+# mu, C = mean_cov_estimate(D)
+# sample = vcol(D[:, 0])
+# print(logpdf_GAU_ND_1Sample(sample, mu, C))
+
 plt.figure()
 XPlot = numpy.linspace(-8, 12, 1000)
 m = numpy.ones((1,1)) * 1.0
@@ -16,13 +21,13 @@ pdfGau = logpdf_GAU_ND(XND, mu, C)
 print(numpy.abs(pdfSol - pdfGau).max())
 
 #ML
-m_ML, C_ML = get_ml_mu_sigma(XND)
+m_ML, C_ML = mean_cov_estimate(XND)
 ll = loglikelihood(XND, m_ML, C_ML)
 print(ll)
 
 
 X1D = numpy.load('Solution/X1D.npy')
-m_ML, C_ML = get_ml_mu_sigma(X1D)
+m_ML, C_ML = mean_cov_estimate(X1D)
 plt.figure()
 plt.hist(X1D.ravel(), bins=50, density=True)
 XPlot = numpy.linspace(-8, 12, 1000)

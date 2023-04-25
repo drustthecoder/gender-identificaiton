@@ -1,5 +1,11 @@
 import numpy
 import scipy
+import sklearn.datasets
+
+
+def load_iris():
+    D, L = sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']
+    return D, L
 
 
 def vrow(v):
@@ -50,10 +56,9 @@ def LDA1(D, L, m):
 
 
 def LDA2(D, L, m):
-
     SB, SW = SbSw(D, L)
     U, s, _ = numpy.linalg.svd(SW)
-    P1 = numpy.dot(U, vcol(1.0/s**0.5)*U.T)
+    P1 = numpy.dot(U, vcol(1.0 / s ** 0.5) * U.T)
     SBTilde = numpy.dot(P1, numpy.dot(SB, P1.T))
     U, _, _ = numpy.linalg.svd(SBTilde)
     P2 = U[:, 0:m]
@@ -68,7 +73,6 @@ def logpdf_GAU_ND_1Sample(x, mu, C):
     L = numpy.linalg.inv(C)  # Inverse of the covariance = precision matrix
     v = numpy.dot(xc.T, numpy.dot(L, xc)).ravel()  # Ravel so instead of 1x1 matrix it's a 1-d array with one element
     return const - 0.5 * logdet - 0.5 * v
-
 
 
 def logpdf_GAU_ND(X, mu, C):
@@ -89,7 +93,7 @@ def logpdf_GAU_ND_fast(X, mu, C):
     return const - 0.5 * logdet - 0.5 * v
 
 
-def get_ml_mu_sigma(D):
+def mean_cov_estimate(D):
     mu = vcol(D.mean(1))
     C = numpy.dot(D - mu, (D - mu).T) / D.shape[1]
     return mu, C
@@ -97,3 +101,47 @@ def get_ml_mu_sigma(D):
 
 def loglikelihood(X, mu, C):
     return numpy.sum(logpdf_GAU_ND_fast(X, mu, C))
+
+
+def split_db_2to1(D, L, seed=0):
+    nTrain = int(D.shape[1] * 2.0 / 3.0)
+    numpy.random.seed(seed)
+    idx = numpy.random.permutation(D.shape[1])
+    idxTrain = idx[0:nTrain]
+    idxTest = idx[nTrain:]
+    DTR = D[:, idxTrain]
+    DTE = D[:, idxTest]
+    LTR = L[idxTrain]
+    LTE = L[idxTest]
+    return (DTR, LTR), (DTE, LTE)
+
+
+def classify_iris():
+    D, L = load_iris()
+    (DTR, LTR), (DTV, LTV) = split_db_2to1(D, L)
+
+    # Traning
+    hCls = {}  # to store parameters for the three classes
+    for lab in [0, 1, 2]:  # for each label/class
+        DCLS = DTR[:, LTR == lab]  # select data of this class
+        hCls[lab] = mean_cov_estimate(DCLS)
+
+    # Classification
+    prior = vcol(numpy.ones(3) / 3.0)  # one third probability for each class
+    S = []  # each row is the class-conditional density for all the test samples given the hypothesised class
+    for hyp in [0, 1, 2]:  # for each class
+        mu, C = hCls[hyp]  # get the model parameters of the class
+
+        # compute exponential of log-density of samples of the class which gives us a column vector
+        fcond = numpy.exp(logpdf_GAU_ND_fast(DTV, mu, C))
+
+        S.append(vrow(fcond))
+
+    S = numpy.vstack(S)  # S is a matrix and each column consists of the densities of each class for each sample
+    S = S * prior
+
+    # S.sum(0) computes the sum of each column of S (marginal)
+    # dividing S by S.sum(0) gives the posterior for each class of each sample
+    P = S / vrow(S.sum(0))
+
+    return S, P
