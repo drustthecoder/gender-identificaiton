@@ -49,7 +49,7 @@ if __name__ == "__main__":
     results = []
 
     for lam in lambdas:
-        model = LogisticRegressionModel(DTR, LTR, lam)
+        model = LogisticRegressionModel(DTR, LTR, DTE, LTE, lam)
         weights, loss, error_rate = model.train()
         results.append({'Lambda': lam, 'Loss': loss, 'Error Rate': error_rate})
 

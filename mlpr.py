@@ -199,10 +199,19 @@ def classify_log_iris():
     logging.info(f"acc: {correct_predictions/total_predictions}, correct: {correct_predictions}, total: {total_predictions}")
     return S, P
 
+
+def calculate_error_rate(predictions, labels):
+    incorrect_predictions = np.sum(predictions != labels)
+    error_rate = incorrect_predictions / len(labels)
+    return error_rate
+
+
 class LogisticRegressionModel:
-    def __init__(self, training_data, labels, regularization_param):
+    def __init__(self, training_data, training_labels, evaluation_data, evaluation_labels, regularization_param):
         self.training_data = training_data
-        self.labels = labels * 2.0 - 1.0
+        self.training_labels = training_labels * 2.0 - 1.0
+        self.evaluation_data = evaluation_data
+        self.evaluation_labels = evaluation_labels * 2.0 - 1.0
         self.regularization_param = regularization_param
         self.num_features = training_data.shape[0]
 
@@ -210,7 +219,7 @@ class LogisticRegressionModel:
         weights = np.array(weights_and_bias[:self.num_features])
         bias = weights_and_bias[-1]
         scores = np.dot(weights.T, self.training_data) + bias
-        loss_per_sample = np.logaddexp(0, -self.labels * scores)
+        loss_per_sample = np.logaddexp(0, -self.training_labels * scores)
         loss = loss_per_sample.mean() + 0.5 * self.regularization_param * np.linalg.norm(weights) ** 2
         return loss
 
@@ -228,44 +237,37 @@ class LogisticRegressionModel:
         weights = optimized_weights_and_bias[:self.num_features]
         bias = optimized_weights_and_bias[-1]
 
-
-        scores = np.dot(weights.T, self.training_data) + bias
+        # compute scores using evaluation data
+        scores = np.dot(weights.T, self.evaluation_data) + bias
         predictions = np.sign(scores)
 
         # Compute the error rate
-        error_rate = self.calculate_error_rate(predictions, self.labels)
+        error_rate = calculate_error_rate(predictions, self.evaluation_labels)
 
         return optimized_weights_and_bias, optimal_loss, error_rate
 
-    def calculate_error_rate(self, predictions, labels):
-        incorrect_predictions = np.sum(predictions != labels)
-        error_rate = incorrect_predictions / len(labels)
-        return error_rate
 
-
-
-
-class logRegModel():
-    def __init__(self, D, L, l):
-        self.DTR = D
-        self.ZTR = L * 2.0 - 1.0
-        self.l = l
-        self.dim = D.shape[0]
-
-    def logreg_obj(self, v):
-        w = vcol(v[0:self.dim])
-        b = v[-1]
-        scores = np.dot(w.T, self.DTR) + b
-        loss_per_sample = np.logaddexp(0, -self.ZTR * scores)
-        loss = loss_per_sample.mean() + 0.5 * self.l * np.linalg.norm(w)**2
-        return loss
-
-    def train(self):
-        x0 = np.zeros(self.DTR.shape[0]+1)
-        xOpt, fOpt, d = scipy.optimize.fmin_l_bfgs_b(self.logreg_obj, x0 = x0, approx_grad=True)
-        print(xOpt)
-        print(fOpt)
-        return xOpt
+# class logRegModel():
+#     def __init__(self, D, L, l):
+#         self.DTR = D
+#         self.ZTR = L * 2.0 - 1.0
+#         self.l = l
+#         self.dim = D.shape[0]
+#
+#     def logreg_obj(self, v):
+#         w = vcol(v[0:self.dim])
+#         b = v[-1]
+#         scores = np.dot(w.T, self.DTR) + b
+#         loss_per_sample = np.logaddexp(0, -self.ZTR * scores)
+#         loss = loss_per_sample.mean() + 0.5 * self.l * np.linalg.norm(w)**2
+#         return loss
+#
+#     def train(self):
+#         x0 = np.zeros(self.DTR.shape[0]+1)
+#         xOpt, fOpt, d = scipy.optimize.fmin_l_bfgs_b(self.logreg_obj, x0 = x0, approx_grad=True)
+#         print(xOpt)
+#         print(fOpt)
+#         return xOpt
 
 if __name__ == "__main__":
     print("This is mlpr.py")
