@@ -209,11 +209,11 @@ def calculate_error_rate(predictions, labels):
 class LogisticRegressionModel:
     def __init__(self, training_data, training_labels, evaluation_data, evaluation_labels, regularization_param):
         self.training_data = training_data
-        self.training_labels = training_labels * 2.0 - 1.0
+        self.training_labels = training_labels * 2.0 - 1.0  # This is ZTR
         self.evaluation_data = evaluation_data
         self.evaluation_labels = evaluation_labels * 2.0 - 1.0
-        self.regularization_param = regularization_param
-        self.num_features = training_data.shape[0]
+        self.regularization_param = regularization_param  # This is Lambda
+        self.num_features = training_data.shape[0]  # This is dim
 
     def calculate_loss(self, weights_and_bias):
         weights = np.array(weights_and_bias[:self.num_features])
