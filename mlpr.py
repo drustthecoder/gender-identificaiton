@@ -38,6 +38,8 @@ def PCA2(D, m):
 
 
 def SbSw(D, L):
+    # calculates the scatter matrices SB (between-class scatter matrix) and
+    # SW (within-class scatter matrix) for a given dataset and its corresponding labels.
     SB = 0
     SW = 0
     mu = vcol(D.mean(1))
@@ -85,6 +87,8 @@ def logpdf_GAU_ND(X, mu, C):
 
 
 def logpdf_GAU_ND_fast(X, mu, C):
+    # calculates the logarithm of the probability density function (PDF)
+    # for a multivariate Gaussian distribution.
     XC = X - mu
     M = X.shape[0]
     const = - 0.5 * M * np.log(2 * np.pi)

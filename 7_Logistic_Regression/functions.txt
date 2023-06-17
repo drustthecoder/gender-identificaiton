@@ -1,0 +1,31 @@
+﻿
+
+def logreg_obj_wrap (DTR, LTR, 1):
+    dim = DTR.shape[0]
+    ZTR = LTR 2.0 - 1.0
+    
+    def logreg(v):
+        W = vcol (v[0:dim])
+        b = v[-1]
+        scores = numpy.dot (w.T, DTR) + b
+        loss_per_sample= numpy.logaddexp(0, -ZTR scores)
+        loss = loss_per_sample.mean() + 0.5*1* numpy.linalg.norm(w)**2 return loss
+    return logreg
+
+import scipy.optimize
+
+def train_logreg(D, L, lamb):
+    logreg_obj = logreg_obj_wrap (D, L, lamb)
+    x = numpy.zeros(DTR.shape[0]+1)
+    xOpt, fopt, d = scipy.optimize.fmin_1_bfgs_b(logreg_obj, x0 = x0,approx_grad=True)
+    print (xOpt)
+    print (fopt)
+    w, b = vcol(xOpt[0:DTR.shape[0]]), xOpt[-1])
+    return w, b
+    
+
+    w, b = train_logreg(DTR, LTR, 1e-6)
+    s = numpy.dot(w.T, DTE) + b
+    P = (s.ravel() > 0) * 1 # prediction
+    accuracy = 1 - ((P == LTE).sum() / LTE.size)
+    
