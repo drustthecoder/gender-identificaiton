@@ -273,5 +273,42 @@ class LogisticRegressionModel:
 #         print(fOpt)
 #         return xOpt
 
+def confusion_matrix_binary(predictions, true_labels):
+    assert len(predictions) == len(true_labels), "Input lists must have the same length."
+
+    matrix = np.zeros((2, 2), dtype=int)
+
+    for pred, true_label in zip(predictions, true_labels):
+        matrix[pred, true_label] += 1
+
+    return matrix
+
+
+def compute_optimal_bayes_decisions(log_likelihoods, cost_params):
+    # Computes optimal Bayes decisions based on
+    # log-likelihoods and cost matrix parameters tuple (π1, Cfn, Cfp)
+
+    # Unpacking cost matrix parameters
+    pi_1, Cfn, Cfp = cost_params
+
+    # Compute the threshold
+    threshold = -np.log((pi_1 * Cfn) / ((1 - pi_1) * Cfp))
+
+    # Compute prediction by doing optimal Bayes decision
+    # Choose the class c∗ which has minimum expected Bayes cost
+    predictions = np.array([0 if llr <= threshold else 1 for llr in log_likelihoods])
+    return predictions
+
+
+def compute_DCF(confusion_mat, cost_params):
+    # Compute empirical Bayes risk (or detection cost function, DCF)
+
+    pi_1, Cfn, Cfp = cost_params
+    false_negative_rate = confusion_mat[0, 1] / (confusion_mat[0, 1] + confusion_mat[1, 1])
+    false_positive_rate = confusion_mat[1, 0] / (confusion_mat[0, 0] + confusion_mat[1, 0])
+    bayes_risk = pi_1 * Cfn * false_negative_rate + (1 - pi_1) * Cfp * false_positive_rate
+    return bayes_risk
+
+
 if __name__ == "__main__":
     print("This is mlpr.py")
