@@ -1,5 +1,5 @@
 import logging
-
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import sklearn.datasets
@@ -300,14 +300,46 @@ def compute_optimal_bayes_decisions(log_likelihoods, cost_params):
     return predictions
 
 
-def compute_DCF(confusion_mat, cost_params):
-    # Compute empirical Bayes risk (or detection cost function, DCF)
+def compute_fnr_fpr(confusion_mat):
+    fnr = confusion_mat[0, 1] / (confusion_mat[0, 1] + confusion_mat[1, 1])
+    fpr = confusion_mat[1, 0] / (confusion_mat[0, 0] + confusion_mat[1, 0])
+    return fnr, fpr
 
+
+def compute_DCF_from_conf_mat(conf_mat, cost_params):
+    # Compute empirical Bayes risk (or detection cost function, DCF)
     pi_1, Cfn, Cfp = cost_params
-    false_negative_rate = confusion_mat[0, 1] / (confusion_mat[0, 1] + confusion_mat[1, 1])
-    false_positive_rate = confusion_mat[1, 0] / (confusion_mat[0, 0] + confusion_mat[1, 0])
-    bayes_risk = pi_1 * Cfn * false_negative_rate + (1 - pi_1) * Cfp * false_positive_rate
-    return bayes_risk
+    fnr, fpr = compute_fnr_fpr(conf_mat)
+    dcf = pi_1 * Cfn * fnr + (1 - pi_1) * Cfp * fpr
+    dummy_risk = min([pi_1 * Cfn, (1 - pi_1) * Cfp])
+    normalized_dcf = dcf / dummy_risk
+    return normalized_dcf
+
+
+def compute_min_DCF(log_likelihoods, true_labels, cost_params):
+    dcf_list = []
+    for threshold in sorted(log_likelihoods):
+        predictions = np.array([0 if llr <= threshold else 1 for llr in log_likelihoods])
+        conf_mat = confusion_matrix_binary(predictions, true_labels)
+        dcf = compute_DCF_from_conf_mat(conf_mat, cost_params)
+        dcf_list.append(dcf)
+    return min(dcf_list)
+
+
+def plot_roc_curve(log_likelihoods, true_labels):
+    tpr_values, fpr_values = [], []
+    for threshold in sorted(log_likelihoods):
+        predictions = np.array([0 if llr <= threshold else 1 for llr in log_likelihoods])
+        conf_mat = confusion_matrix_binary(predictions, true_labels)
+        fnr, fpr = compute_fnr_fpr(conf_mat)
+        tpr = 1 - fnr
+        tpr_values.append(tpr)
+        fpr_values.append(fpr)
+    plt.plot(fpr_values, tpr_values)
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic')
+    plt.show()
 
 
 if __name__ == "__main__":

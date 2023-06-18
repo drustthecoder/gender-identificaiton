@@ -1,9 +1,6 @@
 from mlpr import *
 
 
-
-
-
 if __name__ == "__main__":
     # predictions = np.load("Data/commedia_ll.npy ")
     # true_labels = np.load("Data/commedia_labels.npy")
@@ -20,13 +17,10 @@ if __name__ == "__main__":
         (0.5, 10, 1),
         (0.8, 1, 10)
         ]
-    print(f"(pi_1, Cfn, Cfp)\t\tDCFu\t\tDCF")
+    print(f"(pi_1, Cfn, Cfp)\t\tDCF\t\tmin DCF")
     for app in applications:
         predicted_labels = compute_optimal_bayes_decisions(commedia_llr_infpar, app)
         commedia_confusion_mat = confusion_matrix_binary(predicted_labels, commedia_labels_infpar)
-        commedia_bayes_risk = compute_DCF(commedia_confusion_mat, app)
-        pi_1, Cfn, Cfp = app
-        dummy_risk = np.array([pi_1 * Cfn, (1-pi_1) * Cfp]).min()
-        normalized_risk = commedia_bayes_risk/dummy_risk
-        print(f"{app}\t\t{commedia_bayes_risk}\t\t{normalized_risk}")
-
+        commedia_DCF = compute_DCF_from_conf_mat(commedia_confusion_mat, app)
+        minimum_DCF = compute_min_DCF(commedia_llr_infpar, commedia_labels_infpar, app)
+        print(f"{app}\t\t{commedia_DCF}\t\t{minimum_DCF}")
