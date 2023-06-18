@@ -342,5 +342,26 @@ def plot_roc_curve(log_likelihoods, true_labels):
     plt.show()
 
 
+def plot_bayes_error(log_likelihoods, true_labels):
+    dcf = []
+    mindcf = []
+    effPriorLogOdds = np.linspace(-3, 3,21)
+    for p in effPriorLogOdds:
+        pi_tilde = 1 / (1 + np.exp(-p))
+        app = (pi_tilde, 1, 1)
+        optimal_bayes_predictions = compute_optimal_bayes_decisions(log_likelihoods, app)
+        optimal_bayes_conf_mat = confusion_matrix_binary(optimal_bayes_predictions, true_labels)
+        dcf.append(compute_DCF_from_conf_mat(optimal_bayes_conf_mat, app))
+        mindcf.append(compute_min_DCF(log_likelihoods, true_labels, app))
+    plt.plot(effPriorLogOdds, dcf, label='DCF', color='r')
+    plt.plot(effPriorLogOdds, mindcf, label='min DCF', color='b')
+    plt.ylim([0, 1.1])
+    plt.xlim([-3, 3])
+    plt.xlabel('prior log-odds')
+    plt.ylabel('DCF value')
+    plt.title('Bayes error plot')
+    plt.show()
+
+
 if __name__ == "__main__":
     print("This is mlpr.py")
