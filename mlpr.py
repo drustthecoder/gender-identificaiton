@@ -317,13 +317,13 @@ def compute_DCF_from_conf_mat(conf_mat, cost_params):
 
 
 def compute_min_DCF(log_likelihoods, true_labels, cost_params):
-    dcf_list = []
+    min_dcf = float('inf')
     for threshold in sorted(log_likelihoods):
         predictions = np.array([0 if llr <= threshold else 1 for llr in log_likelihoods])
         conf_mat = confusion_matrix_binary(predictions, true_labels)
         dcf = compute_DCF_from_conf_mat(conf_mat, cost_params)
-        dcf_list.append(dcf)
-    return min(dcf_list)
+        min_dcf = dcf if dcf < min_dcf else min_dcf
+    return min_dcf
 
 
 def plot_roc_curve(log_likelihoods, true_labels):
