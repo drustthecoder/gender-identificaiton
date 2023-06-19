@@ -345,7 +345,7 @@ def plot_roc_curve(log_likelihoods, true_labels):
 def plot_bayes_error(log_likelihoods, true_labels):
     dcf = []
     mindcf = []
-    effPriorLogOdds = np.linspace(-3, 3,21)
+    effPriorLogOdds = np.linspace(-3, 3, 21)
     for p in effPriorLogOdds:
         pi_tilde = 1 / (1 + np.exp(-p))
         app = (pi_tilde, 1, 1)
@@ -360,6 +360,7 @@ def plot_bayes_error(log_likelihoods, true_labels):
     plt.xlabel('prior log-odds')
     plt.ylabel('DCF value')
     plt.title('Bayes error plot')
+    plt.legend(loc='lower left')
     plt.show()
 
 
