@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 import sklearn.datasets
+from tqdm import tqdm
 
 
 def load_iris():
@@ -344,7 +345,7 @@ def plot_roc_curve(log_likelihoods, true_labels):
 
 def plot_bayes_error(models, effPriorLogOdds):
     # models is an array and each element contains name, log_likelihoods, true_labels
-    for m in models:
+    for m in tqdm(models, desc="plot bayes error..."):
         name = m[0]
         log_likelihoods = m[1]
         true_labels = m[2]
