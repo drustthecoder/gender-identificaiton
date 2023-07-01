@@ -19,95 +19,159 @@ def vcol(v):
     return v.reshape(v.size, 1)
 
 
-def PCA(D, m):
-    mu = vcol(D.mean(1))
-    C = np.dot(D - mu, (D - mu).T) / D.shape[1]
-    s, U = np.linalg.eigh(C)
-    U = U[:, ::-1]
-    P = U[:, 0:m]
+def PCA(data, num_components):
+    # Calculate the mean of each row in the data matrix
+    mean_vector = np.mean(data, axis=1)
 
-    return P
+    # Center the data by subtracting the mean from each column
+    centered_data = data - mean_vector.reshape(-1, 1)
+
+    # Calculate the covariance matrix
+    covariance_matrix = np.dot(centered_data, centered_data.T) / data.shape[1]
+
+    # Perform eigendecomposition on the covariance matrix
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
+
+    # Sort the eigenvectors in descending order based on their corresponding eigenvalues
+    sorted_indices = np.argsort(eigenvalues)[::-1]
+    sorted_eigenvectors = eigenvectors[:, sorted_indices]
+
+    # Select the top 'num_components' eigenvectors as the principal components
+    principal_components = sorted_eigenvectors[:, 0:num_components]
+
+    return principal_components
 
 
-def PCA2(D, m):
-    mu = vcol(D.mean(1))
-    C = np.dot(D - mu, (D - mu).T) / D.shape[1]
-    U, _, _ = np.linalg.svd(C)
-    P = U[:, 0:m]
+# def PCA2(data, num_components):
+#     # Calculate the mean vector
+#     mean_vector = np.mean(data, axis=1)
+#     # Calculate the covariance matrix
+#     covariance_matrix = np.dot(data - mean_vector, (data - mean_vector).T) / data.shape[1]
+#     # Perform singular value decomposition
+#     U, _, _ = np.linalg.svd(covariance_matrix)
+#     # Extract the principal components
+#     principal_components = U[:, 0:num_components]
+#     return principal_components
 
-    return P
 
-
-def SbSw(D, L):
-    # calculates the scatter matrices SB (between-class scatter matrix) and
-    # SW (within-class scatter matrix) for a given dataset and its corresponding labels.
+def calculate_scatter_matrices(dataset, labels):
+    """
+    Calculates the scatter matrices SB (between-class scatter matrix) and
+    SW (within-class scatter matrix) for a given dataset and its corresponding labels.
+    """
+    # Initialize SB and SW scatter matrices
     SB = 0
     SW = 0
-    mu = vcol(D.mean(1))
-    for i in range(L.max() + 1):
-        DCls = D[:, L == i]
-        muCls = vcol(DCls.mean(1))
-        SW += np.dot(DCls - muCls, (DCls - muCls).T)
-        SB += DCls.shape[1] * np.dot(muCls - mu, (muCls - mu).T)
-    SW /= D.shape[1]
-    SB /= D.shape[1]
+
+    # Calculate the mean vector of the dataset
+    mean_vector = np.expand_dims(dataset.mean(axis=1), axis=1)
+
+    # Iterate over each class
+    for i in range(labels.max() + 1):
+        # Select data points belonging to the current class
+        data_class = dataset[:, labels == i]
+
+        # Calculate the mean vector of the current class
+        class_mean_vector = np.expand_dims(data_class.mean(axis=1), axis=1)
+
+        # Update the SW scatter matrix by summing the outer product of the centered data points
+        SW += np.dot(data_class - class_mean_vector, (data_class - class_mean_vector).T)
+
+        # Update the SB scatter matrix by summing the outer product of the centered class mean vector
+        SB += data_class.shape[1] * np.dot(class_mean_vector - mean_vector, (class_mean_vector - mean_vector).T)
+
+    # Normalize the SW and SB scatter matrices by dividing by the number of data points
+    SW /= dataset.shape[1]
+    SB /= dataset.shape[1]
+
+    # Return the calculated SB and SW scatter matrices
     return SB, SW
 
 
-def LDA1(D, L, m):
-    SB, SW = SbSw(D, L)
-    s, U = scipy.linalg.eigh(SB, SW)
-    return U[:, ::-1][:, 0:m]
+def LDA(data, labels, num_components):
+    # Calculate scatter matrices
+    scatter_between, scatter_within = calculate_scatter_matrices(data, labels)
+
+    # Perform eigenvalue decomposition
+    eigenvalues, eigenvectors = scipy.linalg.eigh(scatter_between, scatter_within)
+
+    # Select the desired number of components
+    selected_eigenvectors = eigenvectors[:, ::-1][:, 0:num_components]
+
+    # Return the eigenvectors corresponding to the desired number of components
+    return selected_eigenvectors
 
 
-def LDA2(D, L, m):
-    SB, SW = SbSw(D, L)
-    U, s, _ = np.linalg.svd(SW)
-    P1 = np.dot(U, vcol(1.0 / s ** 0.5) * U.T)
-    SBTilde = np.dot(P1, np.dot(SB, P1.T))
-    U, _, _ = np.linalg.svd(SBTilde)
-    P2 = U[:, 0:m]
-    return np.dot(P1.T, P2)
+# def LDA2(D, L, m):
+#     SB, SW = calculate_scatter_matrices(D, L)
+#     U, s, _ = np.linalg.svd(SW)
+#     P1 = np.dot(U, vcol(1.0 / s ** 0.5) * U.T)
+#     SBTilde = np.dot(P1, np.dot(SB, P1.T))
+#     U, _, _ = np.linalg.svd(SBTilde)
+#     P2 = U[:, 0:m]
+#     return np.dot(P1.T, P2)
 
 
-def logpdf_GAU_ND_1Sample(x, mu, C):
-    xc = x - mu  # Centered x
-    M = x.shape[0]  # The size of the feature vector
-    const = - 0.5 * M * np.log(2 * np.pi)
-    logdet = np.linalg.slogdet(C)[1]  # Index 1 is the value of the log determinant
-    L = np.linalg.inv(C)  # Inverse of the covariance = precision matrix
-    v = np.dot(xc.T, np.dot(L, xc)).ravel()  # Ravel so instead of 1x1 matrix it's a 1-d array with one element
-    return const - 0.5 * logdet - 0.5 * v
+# def logpdf_GAU_ND_1Sample(x, mu, C):
+#     xc = x - mu  # Centered x
+#     M = x.shape[0]  # The size of the feature vector
+#     const = - 0.5 * M * np.log(2 * np.pi)
+#     logdet = np.linalg.slogdet(C)[1]  # Index 1 is the value of the log determinant
+#     L = np.linalg.inv(C)  # Inverse of the covariance = precision matrix
+#     v = np.dot(xc.T, np.dot(L, xc)).ravel()  # Ravel so instead of 1x1 matrix it's a 1-d array with one element
+#     return const - 0.5 * logdet - 0.5 * v
+#
+#
+# def logpdf_GAU_ND(X, mu, C):
+#     Y = []
+#     for i in range(X.shape[1]):
+#         Y.append(logpdf_GAU_ND_1Sample(X[:, i:i + 1], mu, C))
+#     return np.array(Y).ravel()
 
 
-def logpdf_GAU_ND(X, mu, C):
-    Y = []
-    for i in range(X.shape[1]):
-        Y.append(logpdf_GAU_ND_1Sample(X[:, i:i + 1], mu, C))
-    return np.array(Y).ravel()
-
-
-def logpdf_GAU_ND_fast(X, mu, C):
+def logpdf_GAU_ND_fast(X_samples, mean_vector, covariance_matrix):
     # calculates the logarithm of the probability density function (PDF)
     # for a multivariate Gaussian distribution.
-    XC = X - mu
-    M = X.shape[0]
-    const = - 0.5 * M * np.log(2 * np.pi)
-    logdet = np.linalg.slogdet(C)[1]
-    L = np.linalg.inv(C)
-    v = (XC * np.dot(L, XC)).sum(0)
-    # The dot product produces Lx1, Lx2, ...
-    return const - 0.5 * logdet - 0.5 * v
+
+    # Center the samples around the mean vector
+    X_centered = X_samples - mean_vector
+
+    # Get the number of samples
+    num_samples = X_samples.shape[0]
+
+    # Calculate the constant term in the log PDF equation
+    constant_term = -0.5 * num_samples * np.log(2 * np.pi)
+
+    # Calculate the logarithm of the determinant of the covariance matrix
+    log_det_covariance = np.linalg.slogdet(covariance_matrix)[1]
+
+    # Calculate the inverse of the covariance matrix
+    inverse_covariance = np.linalg.inv(covariance_matrix)
+
+    # Calculate the dot product between centered samples and the inverse covariance matrix
+    dot_product = np.dot(X_centered, inverse_covariance)
+
+    # Calculate the quadratic term in the log PDF equation
+    quadratic_term = (X_centered * dot_product).sum(axis=1)
+
+    # Calculate the logarithm of the PDF values for each sample
+    log_pdf_values = constant_term - 0.5 * log_det_covariance - 0.5 * quadratic_term
+
+    return log_pdf_values
 
 
-def mean_cov_estimate(D):
-    mu = vcol(D.mean(1))
-    C = np.dot(D - mu, (D - mu).T) / D.shape[1]
-    return mu, C
+def estimate_mean_and_covariance(data):
+    # Compute the mean vector
+    mean_vector = np.mean(data, axis=1).reshape(-1, 1)
+
+    # Compute the covariance matrix
+    covariance_matrix = np.cov(data)
+
+    return mean_vector, covariance_matrix
 
 
-def loglikelihood(X, mu, C):
-    return np.sum(logpdf_GAU_ND_fast(X, mu, C))
+def loglikelihood(data, mean, covariance):
+    return np.sum(logpdf_GAU_ND_fast(data, mean, covariance))
 
 
 def split_db_2to1(D, L, seed=0):
@@ -131,7 +195,7 @@ def classify_iris():
     hCls = {}  # to store parameters for the three classes
     for lab in [0, 1, 2]:  # for each label/class
         DCLS = DTR[:, LTR == lab]  # select data of this class
-        hCls[lab] = mean_cov_estimate(DCLS)
+        hCls[lab] = estimate_mean_and_covariance(DCLS)
 
     # Classification
     prior = vcol(np.ones(3) / 3.0)  # one third prior probability for each class
@@ -170,7 +234,7 @@ def classify_log_iris():
     hCls = {}  # to store parameters for the three classes
     for lab in [0, 1, 2]:  # for each label/class
         DCLS = DTR[:, LTR == lab]  # select data of this class
-        hCls[lab] = mean_cov_estimate(DCLS)
+        hCls[lab] = estimate_mean_and_covariance(DCLS)
 
     # Classification
     logprior = np.log(vcol(np.ones(3) / 3.0))  # one third prior probability for each class
