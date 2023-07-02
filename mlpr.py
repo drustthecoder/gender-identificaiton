@@ -72,7 +72,7 @@ def calculate_scatter_matrices(dataset, labels):
         data_class = dataset[:, labels == i]
 
         # Calculate the mean vector of the current class
-        class_mean_vector = np.expand_dims(data_class.mean(axis=1), axis=1)
+        class_mean_vector = vcol(data_class.mean(1))
 
         # Update the SW scatter matrix by summing the outer product of the centered data points
         SW += np.dot(data_class - class_mean_vector, (data_class - class_mean_vector).T)
@@ -129,45 +129,38 @@ def LDA(data, labels, num_components):
 #     return np.array(Y).ravel()
 
 
-def logpdf_GAU_ND_fast(X_samples, mean_vector, covariance_matrix):
+def logpdf_GAU_ND_fast(X, mean, covariance):
     # calculates the logarithm of the probability density function (PDF)
     # for a multivariate Gaussian distribution.
 
-    # Center the samples around the mean vector
-    X_centered = X_samples - mean_vector
+    # Calculate the difference between X and the mean
+    X_centered = X - mean
 
-    # Get the number of samples
-    num_samples = X_samples.shape[0]
+    # Get the number of dimensions
+    M = X.shape[0]
 
-    # Calculate the constant term in the log PDF equation
-    constant_term = -0.5 * num_samples * np.log(2 * np.pi)
+    # Calculate the constant term in the logarithm
+    const = -0.5 * M * np.log(2 * np.pi)
 
     # Calculate the logarithm of the determinant of the covariance matrix
-    log_det_covariance = np.linalg.slogdet(covariance_matrix)[1]
+    logdet = np.linalg.slogdet(covariance)[1]
 
     # Calculate the inverse of the covariance matrix
-    inverse_covariance = np.linalg.inv(covariance_matrix)
+    inverse_covariance = np.linalg.inv(covariance)
 
-    # Calculate the dot product between centered samples and the inverse covariance matrix
-    dot_product = np.dot(X_centered, inverse_covariance)
+    # Calculate the vector v by multiplying X_centered with the inverse_covariance
+    v = (X_centered * np.dot(inverse_covariance, X_centered)).sum(0)
 
-    # Calculate the quadratic term in the log PDF equation
-    quadratic_term = (X_centered * dot_product).sum(axis=1)
+    # Calculate the logarithm of the PDF
+    log_pdf = const - 0.5 * logdet - 0.5 * v
 
-    # Calculate the logarithm of the PDF values for each sample
-    log_pdf_values = constant_term - 0.5 * log_det_covariance - 0.5 * quadratic_term
-
-    return log_pdf_values
+    return log_pdf
 
 
 def estimate_mean_and_covariance(data):
-    # Compute the mean vector
-    mean_vector = np.mean(data, axis=1).reshape(-1, 1)
-
-    # Compute the covariance matrix
-    covariance_matrix = np.cov(data)
-
-    return mean_vector, covariance_matrix
+    mean = vcol(data.mean(1))
+    cov = np.dot(data - mean, (data - mean).T) / data.shape[1]
+    return mean, cov
 
 
 def loglikelihood(data, mean, covariance):

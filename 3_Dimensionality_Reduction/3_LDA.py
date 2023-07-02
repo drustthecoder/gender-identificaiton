@@ -20,5 +20,5 @@ for current_label in labels:
         current_projection[1],
         color=colors[current_label]
     )  # Plot the projected data
-
+plt.title("LDA")
 plt.show()
