@@ -284,5 +284,86 @@ def plot_bayes_error(models, effPriorLogOdds):
     plt.show()
 
 
+def logpdf_GMM(x, gmmList):
+    # This contains the joint log-density of each data point
+    yList = []
+    for w, mu, C in gmmList:
+        # cluster-conditional densities + logarithm of prior = joing log-density
+        lc = logpdf_GAU_ND_fast(x, mu, C) + np.log(w)
+        yList.append(vrow(lc))
+    y = np.vstack(yList)
+    # Compute log-marginal of each data point
+    return scipy.special.logsumexp(yList, axis=0)
+
+
+def ML_GMM_LBG(gmm):
+    lOut = []
+    for (w, mu, C) in gmm:
+        U, s, _ = np.linalg.svd(C)
+        lOut.append((w * 0.5, mu + s[0] ** 0.5 * U[:, 0:1] * 0.1, C))
+        lOut.append((w * 0.5, mu - s[0] ** 0.5 * U[:, 0:1] * 0.1, C))
+    return lOut
+
+
+def ML_GMM_IT(D, gmm, diagCov = False, nEMIters = 10, tiedCov = False):
+    _ll = None
+    _llOld = None
+    deltaLL = 1.0
+    _i = 0
+
+    while deltaLL>1e-6:
+        lLL = []
+        for w, mu, C in gmm:
+            ll = logpdf_GAU_ND_fast(D, mu, C) + np.log(w)
+            lLL.append(vrow(ll))
+        LL = np.vstack(lLL)
+
+        # Rows are clusters, columns are samples
+        # Each row contains posterior probability of each sample in each cluster (gammas)
+        post = LL - scipy.special.logsumexp(LL, axis=0)
+        post = np.exp(post)
+
+        _llOld = _ll
+
+        # By doing a sum over the log-marginals, we get the log-likelihood
+        _ll = scipy.special.logsumexp(LL, axis=0).sum()
+        logging.debug(f"Iteration: {_i}, Log-likelihood: {_ll}")
+
+        # If it's not the first iteration we can compute delta between prev and current
+        if _llOld is not None:
+            deltaLL = _ll - _llOld
+        _i = _i + 1
+        # print('[%d - %dG] LL' % (_i, len(gmm)), _ll)
+
+        gmmUpd = []
+        for i in range(post.shape[0]):
+            # Zero order statistics. Sum of gammas for cluster i.
+            Z = post[i].sum()
+            # First order statistics. Delta multiplied by weigh given by posterior values summed over columns
+            # We take the posterior as a row vector
+            # We multiply it by D
+            F = vcol((post[i:i+1, :] * D).sum(1))
+            S = np.dot((post[i:i+1, :] * D), D.T)
+            # Z divided by number of samples
+            wUpd = Z / D.shape[1]
+            muUpd = F / Z
+            CUpd = S / Z - np.dot(muUpd, muUpd.T) + np.eye(C.shape[0]) * 1e-9
+            # CUpd = np.dot(
+            #     post[i:i+1, :] * (D-muUpd),
+            #     D-muUpd
+            # )
+
+            # If covariance need to be diagonal, get the diagonal of covariance
+            if diagCov:
+                CUpd = CUpd * np.eye(CUpd.shape[0])
+            gmmUpd.append((wUpd, muUpd, CUpd))
+
+        if tiedCov:
+            CTot = sum([w*C for w, mu, C in gmmUpd])
+            gmmUpd = [(w, mu, CTot) for w, mu, C in gmmUpd]
+        gmm = gmmUpd
+    return gmm
+
+
 if __name__ == "__main__":
     print("This is mlpr.py")
