@@ -284,84 +284,90 @@ def plot_bayes_error(models, effPriorLogOdds):
     plt.show()
 
 
-def logpdf_GMM(x, gmmList):
-    # This contains the joint log-density of each data point
-    yList = []
-    for w, mu, C in gmmList:
-        # cluster-conditional densities + logarithm of prior = joing log-density
-        lc = logpdf_GAU_ND_fast(x, mu, C) + np.log(w)
-        yList.append(vrow(lc))
-    y = np.vstack(yList)
-    # Compute log-marginal of each data point
-    return scipy.special.logsumexp(yList, axis=0)
+def logpdf_gmm(x, gmmList):
+    # Compute the joint log-density of each data point
+    joint_log_densities = []
+    for weight, mean, covariance in gmmList:
+        # Compute the cluster-conditional densities + logarithm of prior
+        log_dens = logpdf_GAU_ND_fast(x, mean, covariance) + np.log(weight)
+        joint_log_densities.append(vrow(log_dens))
+    y = np.vstack(joint_log_densities)
+
+    # Compute the log-marginal probability of each data point
+    return scipy.special.logsumexp(joint_log_densities, axis=0)
 
 
-def ML_GMM_LBG(gmm):
-    lOut = []
-    for (w, mu, C) in gmm:
-        U, s, _ = np.linalg.svd(C)
-        lOut.append((w * 0.5, mu + s[0] ** 0.5 * U[:, 0:1] * 0.1, C))
-        lOut.append((w * 0.5, mu - s[0] ** 0.5 * U[:, 0:1] * 0.1, C))
-    return lOut
+def lbg_double_cluster_count_gmm(gmm):
+    updated_gmm = []
+    for (weight, mean, covariance) in gmm:
+        U, s, _ = np.linalg.svd(covariance)
+
+        # Create two new Gaussian components by perturbing the mean along the first principal component
+        updated_gmm.append((weight * 0.5, mean + s[0] ** 0.5 * U[:, 0:1] * 0.1, covariance))
+        updated_gmm.append((weight * 0.5, mean - s[0] ** 0.5 * U[:, 0:1] * 0.1, covariance))
+
+    return updated_gmm
 
 
-def ML_GMM_IT(D, gmm, diagCov = False, nEMIters = 10, tiedCov = False):
-    _ll = None
-    _llOld = None
-    deltaLL = 1.0
-    _i = 0
+def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=False):
+    log_likelihood = None
+    previous_log_likelihood = None
+    delta_LL = 1.0
+    iteration = 0
+    starting_log_likelihood = None
 
-    while deltaLL>1e-6:
-        lLL = []
-        for w, mu, C in gmm:
-            ll = logpdf_GAU_ND_fast(D, mu, C) + np.log(w)
-            lLL.append(vrow(ll))
-        LL = np.vstack(lLL)
+    while delta_LL > 1e-6:
+        joint_log_densities = []
+        for weight, mean, covariance in gmm:
+            log_likelihood_comp = logpdf_GAU_ND_fast(data, mean, covariance) + np.log(weight)
+            joint_log_densities.append(vrow(log_likelihood_comp))
+        joint_log_densities_array = np.vstack(joint_log_densities)
 
-        # Rows are clusters, columns are samples
-        # Each row contains posterior probability of each sample in each cluster (gammas)
-        post = LL - scipy.special.logsumexp(LL, axis=0)
-        post = np.exp(post)
+        log_marginal = scipy.special.logsumexp(joint_log_densities_array, axis=0)
 
-        _llOld = _ll
+        # Compute the posterior probabilities (gammas) of each sample in each cluster
+        # By dividing joing log density by log marginal (subtract in log domain)
+        log_posterior = joint_log_densities_array - log_marginal
+        posterior = np.exp(log_posterior)
 
-        # By doing a sum over the log-marginals, we get the log-likelihood
-        _ll = scipy.special.logsumexp(LL, axis=0).sum()
-        logging.debug(f"Iteration: {_i}, Log-likelihood: {_ll}")
+        previous_log_likelihood = log_likelihood
 
-        # If it's not the first iteration we can compute delta between prev and current
-        if _llOld is not None:
-            deltaLL = _ll - _llOld
-        _i = _i + 1
-        # print('[%d - %dG] LL' % (_i, len(gmm)), _ll)
+        # Compute the log-likelihood as the sum over the log-marginals
+        log_likelihood = log_marginal.sum()
+        if starting_log_likelihood is None:
+            starting_log_likelihood = log_likelihood
 
-        gmmUpd = []
-        for i in range(post.shape[0]):
-            # Zero order statistics. Sum of gammas for cluster i.
-            Z = post[i].sum()
-            # First order statistics. Delta multiplied by weigh given by posterior values summed over columns
-            # We take the posterior as a row vector
-            # We multiply it by D
-            F = vcol((post[i:i+1, :] * D).sum(1))
-            S = np.dot((post[i:i+1, :] * D), D.T)
-            # Z divided by number of samples
-            wUpd = Z / D.shape[1]
-            muUpd = F / Z
-            CUpd = S / Z - np.dot(muUpd, muUpd.T) + np.eye(C.shape[0]) * 1e-9
-            # CUpd = np.dot(
-            #     post[i:i+1, :] * (D-muUpd),
-            #     D-muUpd
-            # )
+        # Compute the delta between the previous and current log-likelihood
+        if previous_log_likelihood is not None:
+            delta_LL = log_likelihood - previous_log_likelihood
+        iteration += 1
 
-            # If covariance need to be diagonal, get the diagonal of covariance
+        updated_gmm = []
+        for i in range(posterior.shape[0]):
+            # Compute zeroth-order statistics: sum of gammas for cluster i
+            Z = posterior[i].sum()
+
+            # Compute first-order statistics: delta multiplied by weight given by posterior values summed over columns
+            F = vcol((posterior[i:i + 1, :] * data).sum(1))
+            S = np.dot((posterior[i:i + 1, :] * data), data.T)
+
+            # Update the weight, mean, and covariance
+            weight_update = Z / data.shape[1]
+            mean_update = F / Z
+            covariance_update = S / Z - np.dot(mean_update, mean_update.T) + np.eye(covariance.shape[0]) * 1e-9
+
+            # If covariance needs to be diagonal, get the diagonal of covariance
             if diagCov:
-                CUpd = CUpd * np.eye(CUpd.shape[0])
-            gmmUpd.append((wUpd, muUpd, CUpd))
+                covariance_update = covariance_update * np.eye(covariance_update.shape[0])
+
+            updated_gmm.append((weight_update, mean_update, covariance_update))
 
         if tiedCov:
-            CTot = sum([w*C for w, mu, C in gmmUpd])
-            gmmUpd = [(w, mu, CTot) for w, mu, C in gmmUpd]
-        gmm = gmmUpd
+            total_covariance = sum([weight * covariance for weight, mean, covariance in updated_gmm])
+            updated_gmm = [(weight, mean, total_covariance) for weight, mean, covariance in updated_gmm]
+
+        gmm = updated_gmm
+    print(f"iters: {iteration}, Log-likelihood start: {starting_log_likelihood}, end: {log_likelihood}, gmm len: {len(gmm)}")
     return gmm
 
 
