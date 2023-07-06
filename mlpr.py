@@ -297,7 +297,7 @@ def logpdf_gmm(x, gmmList):
     return scipy.special.logsumexp(joint_log_densities, axis=0)
 
 
-def lbg_double_cluster_count_gmm(gmm):
+def lbg_double_clusters_gmm(gmm):
     updated_gmm = []
     for (weight, mean, covariance) in gmm:
         U, s, _ = np.linalg.svd(covariance)
