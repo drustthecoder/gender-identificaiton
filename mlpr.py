@@ -27,10 +27,10 @@ def PCA(data, num_components):
     centered_data = data - mean_vector.reshape(-1, 1)
 
     # Calculate the covariance matrix
-    covariance_matrix = np.dot(centered_data, centered_data.T) / data.shape[1]
+    average_covariance_matrix = np.dot(centered_data, centered_data.T) / data.shape[1]
 
     # Perform eigendecomposition on the covariance matrix
-    eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
+    eigenvalues, eigenvectors = np.linalg.eigh(average_covariance_matrix)
 
     # Sort the eigenvectors in descending order based on their corresponding eigenvalues
     sorted_indices = np.argsort(eigenvalues)[::-1]
@@ -343,18 +343,21 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
         iteration += 1
 
         updated_gmm = []
-        for i in range(posterior.shape[0]):
-            # Compute zeroth-order statistics: sum of gammas for cluster i
-            Z = posterior[i].sum()
+        for g in range(posterior.shape[0]):
+            # Compute zeroth-order statistics: sum of gammas for cluster g
+            Z = posterior[g].sum()
 
             # Compute first-order statistics: delta multiplied by weight given by posterior values summed over columns
-            F = vcol((posterior[i:i + 1, :] * data).sum(1))
-            S = np.dot((posterior[i:i + 1, :] * data), data.T)
+            F = vcol((posterior[g:g + 1, :] * data).sum(1))
+            S = np.dot((posterior[g:g + 1, :] * data), data.T)
 
             # Update the weight, mean, and covariance
             weight_update = Z / data.shape[1]
             mean_update = F / Z
             covariance_update = S / Z - np.dot(mean_update, mean_update.T) + np.eye(covariance.shape[0]) * 1e-9
+            # new_data_centered = data-mean_update
+            # p = posterior[g:g+1, :]
+            # covariance_update = np.dot((p * new_data_centered), new_data_centered.T)
 
             # If covariance needs to be diagonal, get the diagonal of covariance
             if diagCov:
