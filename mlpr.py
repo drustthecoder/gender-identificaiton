@@ -318,7 +318,7 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
     # iteration = 0
     starting_log_likelihood = None
 
-    pbar = tqdm()
+    pbar = tqdm(desc="doing expectation maximization...")
     while delta_LL > 1e-6:
         pbar.update()
 
