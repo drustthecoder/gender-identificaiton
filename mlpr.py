@@ -4,6 +4,8 @@ import numpy as np
 import scipy
 import sklearn.datasets
 from tqdm import tqdm
+import sys
+from time import sleep
 
 
 def load_iris():
@@ -313,10 +315,13 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
     log_likelihood = None
     previous_log_likelihood = None
     delta_LL = 1.0
-    iteration = 0
+    # iteration = 0
     starting_log_likelihood = None
 
+    pbar = tqdm()
     while delta_LL > 1e-6:
+        pbar.update()
+
         joint_log_densities = []
         for weight, mean, covariance in gmm:
             log_likelihood_comp = logpdf_GAU_ND_fast(data, mean, covariance) + np.log(weight)
@@ -340,7 +345,8 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
         # Compute the delta between the previous and current log-likelihood
         if previous_log_likelihood is not None:
             delta_LL = log_likelihood - previous_log_likelihood
-        iteration += 1
+        # print(delta_LL)
+        # iteration += 1
 
         updated_gmm = []
         for g in range(posterior.shape[0]):
@@ -370,7 +376,11 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
             updated_gmm = [(weight, mean, total_covariance) for weight, mean, covariance in updated_gmm]
 
         gmm = updated_gmm
-    print(f"iters: {iteration}, Log-likelihood start: {starting_log_likelihood}, end: {log_likelihood}, gmm len: {len(gmm)}")
+    pbar.close()
+    sleep(0.1)
+    print(
+        f"gmm len: {len(gmm)}, Log-likelihood start: {starting_log_likelihood}, end: {log_likelihood}")
+
     return gmm
 
 
