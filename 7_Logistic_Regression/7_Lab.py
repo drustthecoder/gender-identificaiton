@@ -17,17 +17,7 @@ def func_f_and_gradient(x):
     return f_value, gradient
 
 
-def load_iris_binary():
-    D, L = sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']
-    D = D[:, L != 0]  # We remove setosa from D
-    L = L[L != 0]  # We remove setosa from L
-    L[L == 2] = 0  # We assign label 0 to virginica (was label 2)
-    return D, L
 
-
-def sigmoid(z):
-    # Sigmoid function
-    return 1 / (1 + numpy.exp(-z))
 
 
 

@@ -1,16 +1,27 @@
-import logging
 import matplotlib.pyplot as plt
-import numpy as np
+import np as np
 import scipy
 import sklearn.datasets
 from tqdm import tqdm
-import sys
 from time import sleep
 
 
 def load_iris():
     D, L = sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']
     return D, L
+
+
+def load_iris_binary():
+    D, L = sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']
+    D = D[:, L != 0]  # We remove setosa from D
+    L = L[L != 0]  # We remove setosa from L
+    L[L == 2] = 0  # We assign label 0 to virginica (was label 2)
+    return D, L
+
+
+def sigmoid(z):
+    # Sigmoid function
+    return 1 / (1 + np.exp(-z))
 
 
 def vrow(v):
@@ -233,14 +244,17 @@ def compute_DCF_from_conf_mat(conf_mat, cost_params):
     return normalized_dcf
 
 
-def compute_min_DCF(log_likelihoods, true_labels, cost_params):
+def compute_min_DCF(scores, true_labels, cost_params):
     min_dcf = float('inf')
-    for threshold in sorted(log_likelihoods):
-        predictions = np.array([0 if llr <= threshold else 1 for llr in log_likelihoods])
+    # dcf_list = []
+    for threshold in sorted(scores):
+        predictions = np.array([0 if llr <= threshold else 1 for llr in scores])
         conf_mat = confusion_matrix_binary(predictions, true_labels)
         dcf = compute_DCF_from_conf_mat(conf_mat, cost_params)
         min_dcf = dcf if dcf < min_dcf else min_dcf
     return min_dcf
+    #     dcf_list.append(dcf)
+    # return np.array(dcf_list).min()
 
 
 def plot_roc_curve(log_likelihoods, true_labels):
@@ -293,7 +307,7 @@ def logpdf_gmm(x, gmmList):
         # Compute the cluster-conditional densities + logarithm of prior
         log_dens = logpdf_GAU_ND_fast(x, mean, covariance) + np.log(weight)
         joint_log_densities.append(vrow(log_dens))
-    y = np.vstack(joint_log_densities)
+    # y = np.vstack(joint_log_densities)
 
     # Compute the log-marginal probability of each data point
     return scipy.special.logsumexp(joint_log_densities, axis=0)
@@ -311,11 +325,9 @@ def lbg_double_clusters_gmm(gmm):
     return updated_gmm
 
 
-def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=False):
+def expectation_maximization_gmm(data, gmm, diagCov=False, tiedCov=False):
     log_likelihood = None
-    previous_log_likelihood = None
     delta_LL = 1.0
-    # iteration = 0
     starting_log_likelihood = None
 
     pbar = tqdm(desc="doing expectation maximization...")
@@ -345,8 +357,6 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
         # Compute the delta between the previous and current log-likelihood
         if previous_log_likelihood is not None:
             delta_LL = log_likelihood - previous_log_likelihood
-        # print(delta_LL)
-        # iteration += 1
 
         updated_gmm = []
         for g in range(posterior.shape[0]):
@@ -361,9 +371,6 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
             weight_update = Z / data.shape[1]
             mean_update = F / Z
             covariance_update = S / Z - np.dot(mean_update, mean_update.T) + np.eye(covariance.shape[0]) * 1e-9
-            # new_data_centered = data-mean_update
-            # p = posterior[g:g+1, :]
-            # covariance_update = np.dot((p * new_data_centered), new_data_centered.T)
 
             # If covariance needs to be diagonal, get the diagonal of covariance
             if diagCov:
@@ -382,6 +389,95 @@ def expectation_maximization_gmm(data, gmm, diagCov=False, nEMIters=10, tiedCov=
         f"gmm len: {len(gmm)}, Log-likelihood start: {starting_log_likelihood}, end: {log_likelihood}")
 
     return gmm
+
+
+def column(v):
+    return v.reshape((v.size), 1)
+
+
+def row(v):
+    return v.reshape(1, v.size)
+
+
+class SupportVectorMachines:
+    def __init__(self, C, mode, pT, gamma=1, d=2, K=1):
+        self.C = C
+        self.mode = mode
+        self.pT = pT
+        self.d = d
+        self.gamma = gamma
+        self.K = K
+        self.w_start = None
+        self.H = None
+
+    def train(self, DTR, LTR):
+        DTRext = np.vstack([DTR, np.ones((1, DTR.shape[1]))])
+
+        DTR0 = DTR[:, LTR == 0]
+        DTR1 = DTR[:, LTR == 1]
+        nF = DTR0.shape[1]
+        nT = DTR1.shape[1]
+        emp_prior_F = (nF / DTR.shape[1])
+        emp_prior_T = (nT / DTR.shape[1])
+        Cf = self.C * self.pT / emp_prior_F
+        Ct = self.C * self.pT / emp_prior_T
+
+        Z = np.zeros(LTR.shape)
+        Z[LTR == 0] = -1
+        Z[LTR == 1] = 1
+
+        if self.mode == "linear":
+            H = np.dot(DTRext.T, DTRext)
+            H = column(Z) * row(Z) * H
+        elif self.mode == "polynomial":
+            H = np.dot(DTRext.T, DTRext) ** self.d
+            H = column(Z) * row(Z) * H
+        elif self.mode == "RBF":
+            dist = column((DTR ** 2).sum(0)) + row((DTR ** 2).sum(0)) - 2 * np.dot(DTR.T, DTR)
+            H = np.exp(-self.gamma * dist) + self.K
+            H = column(Z) * row(Z) * H
+
+        self.H = H
+
+        bounds = [(-1, -1)] * DTR.shape[1]
+        for i in range(DTR.shape[1]):
+            if LTR[i] == 0:
+                bounds[i] = (0, Cf)
+            else:
+                bounds[i] = (0, Ct)
+
+        alpha_star, x, y = scipy.optimize.fmin_l_bfgs_b(
+            self._LDual,
+            np.zeros(DTR.shape[1]),
+            # bounds = [(0, self.C)] * DTR.shape[1],
+            bounds=bounds,
+            factr=1e7,
+            maxiter=100000,
+            maxfun=100000
+        )
+
+        self.w_star = np.dot(DTRext, column(alpha_star) * column(Z))
+
+    def compute_scores(self, DTE):
+        DTEext = np.vstack([DTE, np.ones((1, DTE.shape[1]))])
+        S = np.dot(self.w_star.T, DTEext)
+        return S.ravel()
+
+    def _JDual(self, alpha):
+        Ha = np.dot(self.H, column(alpha))
+        aHa = np.dot(row(alpha), Ha)
+        a1 = alpha.sum()
+        return -0.5 * aHa.ravel() + a1, -Ha.ravel() + np.ones(alpha.size)
+
+    def _LDual(self, alpha):
+        loss, grad = self._JDual(alpha)
+        return -loss, -grad
+
+    def _JPrimal(self, DTRext, w, Z):
+        S = np.dot(row(w), DTRext)
+        loss = np.maximum(np.zeros(S.shape), 1 - Z * S).sum()
+        return 0.5 * np.linalg.norm(w) ** 2 + self.C * loss
+
 
 
 if __name__ == "__main__":

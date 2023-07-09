@@ -1,4 +1,6 @@
 from mlpr import *
+import xvalidator
+import svm
 
 
 if __name__ == "__main__":
@@ -23,4 +25,5 @@ if __name__ == "__main__":
         commedia_confusion_mat = confusion_matrix_binary(predicted_labels, commedia_labels_infpar)
         commedia_DCF = compute_DCF_from_conf_mat(commedia_confusion_mat, app)
         minimum_DCF = compute_min_DCF(commedia_llr_infpar, commedia_labels_infpar, app)
-        print(f"{app}\t\t{commedia_DCF}\t\t{minimum_DCF}")
+        min_DCF_xvalidator = xvalidator.compute_min_DCF(commedia_llr_infpar, commedia_labels_infpar, *app)
+        print(f"{app}\t\t{commedia_DCF}\t\t{minimum_DCF}\t\t{min_DCF_xvalidator}")
