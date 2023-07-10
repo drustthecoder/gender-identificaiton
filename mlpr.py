@@ -1,10 +1,26 @@
 import matplotlib.pyplot as plt
-import np as np
+import numpy as np
 import scipy
 import sklearn.datasets
 from tqdm import tqdm
 from time import sleep
+import os
 
+
+def load_data(file):
+    matrix = []
+    labels = []
+    lines = open(file, "r")
+    for l in lines:
+        tokens = l.split(",")
+        attrVector = column(np.array(tokens[0:-1], dtype=float))
+        label = tokens[-1]
+
+        labels.append(label)
+        matrix.append(attrVector)
+    D = np.hstack(matrix)
+    L = np.array(labels, dtype=np.int32)
+    return D, L
 
 def load_iris():
     D, L = sklearn.datasets.load_iris()['data'].T, sklearn.datasets.load_iris()['target']
@@ -31,6 +47,49 @@ def vrow(v):
 def vcol(v):
     return v.reshape(v.size, 1)
 
+
+def histogram(samples, labels):
+    class0Mask = labels == 0
+    class1Mask = labels == 1
+
+
+    samplesClass0 = samples[:, class0Mask]
+    samplesClass1 = samples[:, class1Mask]
+    for feature in range(samples.shape[0]):
+        plt.hist(samplesClass0[feature,:], color="orange", density=True, bins=100, edgecolor='k', alpha = 0.4, label="Male")
+        plt.hist(samplesClass1[feature,:], color="purple", density=True, bins=100, edgecolor='k', alpha = 0.4,label="Female")
+        plt.xlabel("feature_%d" % feature)
+        plt.legend()
+        plt.savefig('plots/hist_feature_%d.png' % feature)
+        plt.show()
+
+
+def heatmap(D, title, color):
+    plt.figure()
+    pearson_matrix = np.corrcoef(D)
+    plt.imshow(pearson_matrix, cmap=color, vmin=-1, vmax=1)
+    plt.savefig("plots/heatmap_%s.png" % (title))
+    plt.show()
+
+
+def scatter(samples, labels):
+    class0Mask = labels == 0
+    class1Mask = labels == 1
+
+    samplesClass0 = samples[:, class0Mask]
+    samplesClass1 = samples[:, class1Mask]
+    for i in tqdm(range(samples.shape[0])):
+        for j in range(samples.shape[0]):
+            if i == j:
+                continue
+            else:
+                plt.scatter(samplesClass0[i, :], samplesClass0[j, :], color="orange", label="Male", alpha=0.2,  s=80)
+                plt.scatter(samplesClass1[i, :], samplesClass1[j, :], color="purple", label="Female", alpha=0.2,  s=80)
+                plt.xlabel("feature_%d" % j)
+                plt.ylabel("feature_%d" % i)
+                plt.legend()
+                plt.savefig('plots/scatter_feature_%d_%d.png' % (i, j))
+                plt.show()
 
 def PCA(data, num_components):
     # Calculate the mean of each row in the data matrix
