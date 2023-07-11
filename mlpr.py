@@ -47,6 +47,8 @@ def vrow(v):
 def vcol(v):
     return v.reshape(v.size, 1)
 
+mrow = vrow
+
 
 def histogram(samples, labels):
     class0Mask = labels == 0
@@ -58,8 +60,9 @@ def histogram(samples, labels):
     for feature in range(samples.shape[0]):
         plt.hist(samplesClass0[feature,:], color="orange", density=True, bins=100, edgecolor='k', alpha = 0.4, label="Male")
         plt.hist(samplesClass1[feature,:], color="purple", density=True, bins=100, edgecolor='k', alpha = 0.4,label="Female")
-        plt.xlabel("feature_%d" % feature)
+        plt.xlabel("Feature %d" % feature)
         plt.legend()
+        plt.title("Distribution of Feature %d" % feature)
         plt.savefig('plots/hist_feature_%d.png' % feature)
         plt.show()
 
@@ -68,7 +71,8 @@ def heatmap(D, title, color):
     plt.figure()
     pearson_matrix = np.corrcoef(D)
     plt.imshow(pearson_matrix, cmap=color, vmin=-1, vmax=1)
-    plt.savefig("plots/heatmap_%s.png" % (title))
+    plt.title("Correlation Heatmap of %s Class Data" % title)
+    plt.savefig("plots/heatmap_%s.png" % title)
     plt.show()
 
 
@@ -90,6 +94,14 @@ def scatter(samples, labels):
                 plt.legend()
                 plt.savefig('plots/scatter_feature_%d_%d.png' % (i, j))
                 plt.show()
+
+
+def apply_PCA(data, num_components):
+    if num_components == "-":
+        return data
+    principal_components = PCA(data, num_components)
+    return np.dot(principal_components.T, data)
+
 
 def PCA(data, num_components):
     # Calculate the mean of each row in the data matrix
@@ -113,6 +125,46 @@ def PCA(data, num_components):
 
     return principal_components
 
+
+def plot_explained_variance_range(data, min_dim, max_dim):
+    # Calculate the mean of each row in the data matrix
+    mean_vector = np.mean(data, axis=1)
+
+    # Center the data by subtracting the mean from each column
+    centered_data = data - mean_vector.reshape(-1, 1)
+
+    # Calculate the covariance matrix
+    average_covariance_matrix = np.dot(centered_data, centered_data.T) / data.shape[1]
+
+    # Perform eigendecomposition on the covariance matrix
+    eigenvalues, _ = np.linalg.eigh(average_covariance_matrix)
+
+    # Sort the eigenvalues in descending order
+    sorted_eigenvalues = np.sort(eigenvalues)[::-1]
+
+    # Initialize arrays to store the PCA dimensions and the corresponding explained variances
+    dimensions = []
+    explained_variances = []
+
+    # Calculate the fraction of explained variance for each PCA dimension in the range
+    for num_components in range(min_dim, max_dim + 1):
+        total_variance = np.sum(sorted_eigenvalues)
+        explained_variance = np.sum(sorted_eigenvalues[:num_components]) / total_variance
+
+        dimensions.append(num_components)
+        explained_variances.append(explained_variance)
+
+    print(list(zip(dimensions, explained_variances)))
+    # Plot the fraction of explained variance
+    plt.plot(dimensions, explained_variances, 'bo-')
+    plt.xlabel('PCA Dimension')
+    plt.ylabel('Fraction of Explained Variance')
+    plt.title('Fraction of Explained Variance by PCA Dimension')
+    plt.xticks(list(range(0,13)))
+    plt.yticks(list(i/10 for i in range(0, 11)))
+    plt.grid()
+    plt.savefig("plots/explained_variance.png")
+    plt.show()
 
 def calculate_scatter_matrices(dataset, labels):
     """
@@ -536,6 +588,157 @@ class SupportVectorMachines:
         S = np.dot(row(w), DTRext)
         loss = np.maximum(np.zeros(S.shape), 1 - Z * S).sum()
         return 0.5 * np.linalg.norm(w) ** 2 + self.C * loss
+
+
+def get_fold_data(dataset, labels, k, fold_number, seed=42):
+    num_samples = dataset.shape[1]
+    fold_size = num_samples // k
+
+    # Set the random seed
+    np.random.seed(seed)
+
+    # Shuffle the data and labels
+    shuffled_indices = np.random.permutation(num_samples)
+    shuffled_data = dataset[:, shuffled_indices]
+    shuffled_labels = labels[shuffled_indices]
+
+    start = (fold_number - 1) * fold_size
+    end = start + fold_size
+
+    test_data = shuffled_data[:, start:end]
+    train_data = np.concatenate((shuffled_data[:, :start], shuffled_data[:, end:]), axis=1)
+
+    test_labels = shuffled_labels[start:end]
+    train_labels = np.concatenate((shuffled_labels[:start], shuffled_labels[end:]))
+
+    return train_data, train_labels, test_data, test_labels
+
+
+def MVG(DTE, DTR, LTR):
+    h = {}
+
+    for i in range(2):
+        mu, C = estimate_mean_and_covariance(DTR[:, LTR == i])
+        h[i] = (mu, C)
+
+    SJoint = np.zeros((2, DTE.shape[1]))
+    logSJoint = np.zeros((2, DTE.shape[1]))
+    dens = np.zeros((2, DTE.shape[1]))
+    classPriors = [0.5, 0.5]
+
+    for label in range(2):
+        mu, C = h[label]
+        dens[label, :] = np.exp(logpdf_GAU_ND_fast(DTE, mu, C).ravel())
+        SJoint[label, :] = dens[label, :] * classPriors[label]
+        logSJoint[label, :] = logpdf_GAU_ND_fast(DTE, mu, C).ravel() + np.log(classPriors[label])
+
+    SMarginal = SJoint.sum(0)
+    logSMarginal = scipy.special.logsumexp(logSJoint, axis=0)
+
+    Post1 = SJoint / mrow(SMarginal)
+    logPost = logSJoint - mrow(logSMarginal)
+    Post2 = np.exp(logPost)
+    LPred1 = Post1.argmax(0)
+    LPred2 = Post2.argmax(0)
+    return LPred1, LPred2, np.log(dens[1] / dens[0])
+
+
+def naive_MVG(DTE, DTR, LTR):
+    h = {}
+
+    for i in range(2):
+        mu, C = estimate_mean_and_covariance(DTR[:, LTR == i])
+        C = C * np.identity(C.shape[0])
+        h[i] = (mu, C)
+
+    SJoint = np.zeros((2, DTE.shape[1]))
+    logSJoint = np.zeros((2, DTE.shape[1]))
+    dens = np.zeros((2, DTE.shape[1]))
+    classPriors = [0.5, 0.5]
+
+    for label in range(2):
+        mu, C = h[label]
+        dens[label, :] = np.exp(logpdf_GAU_ND_fast(DTE, mu, C).ravel())
+        SJoint[label, :] = dens[label, :] * classPriors[label]
+        logSJoint[label, :] = logpdf_GAU_ND_fast(DTE, mu, C).ravel() + np.log(classPriors[label])
+
+    SMarginal = SJoint.sum(0)
+    logSMarginal = scipy.special.logsumexp(logSJoint, axis=0)
+
+    Post1 = SJoint / mrow(SMarginal)
+    logPost = logSJoint - mrow(logSMarginal)
+    Post2 = np.exp(logPost)
+
+    LPred1 = Post1.argmax(0)
+    LPred2 = Post2.argmax(0)
+    return LPred1, LPred2, np.log(dens[1] / dens[0])
+
+
+def tied_cov_GC(DTE, DTR, LTR):
+    h = {}
+    Ctot = 0
+    for i in range(2):
+        mu, C = estimate_mean_and_covariance(DTR[:, LTR == i])
+        Ctot += DTR[:, LTR == i].shape[1] * C
+        h[i] = (mu)
+
+    Ctot = Ctot / DTR.shape[1]
+
+    SJoint = np.zeros((2, DTE.shape[1]))
+    logSJoint = np.zeros((2, DTE.shape[1]))
+    dens = np.zeros((2, DTE.shape[1]))
+    classPriors = [0.5, 0.5]
+
+    for label in range(2):
+        mu = h[label]
+        dens[label, :] = np.exp(logpdf_GAU_ND_fast(DTE, mu, Ctot).ravel())
+        SJoint[label, :] = dens[label, :] * classPriors[label]
+        logSJoint[label, :] = logpdf_GAU_ND_fast(DTE, mu, Ctot).ravel() + np.log(classPriors[label])
+
+    SMarginal = SJoint.sum(0)
+    logSMarginal = scipy.special.logsumexp(logSJoint, axis=0)
+
+    Post1 = SJoint / mrow(SMarginal)
+    logPost = logSJoint - mrow(logSMarginal)
+    Post2 = np.exp(logPost)
+
+    LPred1 = Post1.argmax(0)
+    LPred2 = Post2.argmax(0)
+    return LPred1, LPred2, np.log(dens[1] / dens[0])
+
+
+def tied_cov_naive_GC(DTE, DTR, LTR):
+    h = {}
+    Ctot = 0
+    for i in range(2):
+        mu, C = estimate_mean_and_covariance(DTR[:, LTR == i])
+        Ctot += DTR[:, LTR == i].shape[1] * C
+        h[i] = (mu)
+
+    Ctot = Ctot / DTR.shape[1]
+    Ctot = Ctot * np.identity(Ctot.shape[0])
+
+    SJoint = np.zeros((2, DTE.shape[1]))
+    logSJoint = np.zeros((2, DTE.shape[1]))
+    dens = np.zeros((2, DTE.shape[1]))
+    classPriors = [0.5, 0.5]
+
+    for label in range(2):
+        mu = h[label]
+        dens[label, :] = np.exp(logpdf_GAU_ND_fast(DTE, mu, Ctot).ravel())
+        SJoint[label, :] = dens[label, :] * classPriors[label]
+        logSJoint[label, :] = logpdf_GAU_ND_fast(DTE, mu, Ctot).ravel() + np.log(classPriors[label])
+
+    SMarginal = SJoint.sum(0)
+    logSMarginal = scipy.special.logsumexp(logSJoint, axis=0)
+
+    Post1 = SJoint / mrow(SMarginal)
+    logPost = logSJoint - mrow(logSMarginal)
+    Post2 = np.exp(logPost)
+
+    LPred1 = Post1.argmax(0)
+    LPred2 = Post2.argmax(0)
+    return LPred1, LPred2, np.log(dens[1] / dens[0])
 
 
 
