@@ -4,6 +4,12 @@ from mlpr import *
 
 data, labels = load_data("data/Test.txt")
 
+#preprocess?
+# center data
+# Standardize variances
+# Whiten the covariance matrix
+# L2 (or length) normalization
+
 pca_values = ["-", 12, 11, 10, 9]
 results = []
 app = (0.5, 1, 1)

@@ -49,6 +49,8 @@ def vcol(v):
 
 mrow = vrow
 
+mcol = vcol
+
 
 def histogram(samples, labels):
     class0Mask = labels == 0
@@ -295,8 +297,8 @@ class LogisticRegressionModel:
             x0=initial_weights_and_bias,
             approx_grad=True
         )
-        print("Optimized weights and bias:", optimized_weights_and_bias)
-        print("Optimal loss:", optimal_loss)
+        # print("Optimized weights and bias:", optimized_weights_and_bias)
+        # print("Optimal loss:", optimal_loss)
 
         # Compute predictions on the training data
         weights = optimized_weights_and_bias[:self.num_features]
@@ -304,12 +306,12 @@ class LogisticRegressionModel:
 
         # compute scores using evaluation data
         scores = np.dot(weights.T, self.evaluation_data) + bias
-        predictions = np.sign(scores)
+        # predictions = np.sign(scores)
+        #
+        # # Compute the error rate
+        # error_rate = calculate_error_rate(predictions, self.evaluation_labels)
 
-        # Compute the error rate
-        error_rate = calculate_error_rate(predictions, self.evaluation_labels)
-
-        return optimized_weights_and_bias, optimal_loss, error_rate
+        return scores
 
 
 def confusion_matrix_binary(predictions, true_labels):
@@ -741,6 +743,104 @@ def tied_cov_naive_GC(DTE, DTR, LTR):
     return LPred1, LPred2, np.log(dens[1] / dens[0])
 
 
+def weighted_logreg_obj_wrap(DTR, LTR, l, pi=0.5):
+    M = DTR.shape[0]
+    Z = LTR * 2.0 - 1.0
+
+    def logreg_obj(v):
+        w = mcol(v[0:M])
+        b = v[-1]
+        reg = 0.5 * l * np.linalg.norm(w) ** 2
+        s = (np.dot(w.T, DTR) + b).ravel()
+        nt = DTR[:, LTR == 0].shape[1]
+        avg_risk_0 = (np.logaddexp(0, -s[LTR == 0] * Z[LTR == 0])).sum()
+        avg_risk_1 = (np.logaddexp(0, -s[LTR == 1] * Z[LTR == 1])).sum()
+        return reg + (pi / nt) * avg_risk_1 + (1 - pi) / (DTR.shape[1] - nt) * avg_risk_0
+
+    return logreg_obj
+
+
+def weighted_logistic_reg_score(DTR, LTR, DTE, l, pi=0.5):
+    logreg_obj = weighted_logreg_obj_wrap(np.array(DTR), LTR, l, pi)
+    minimizer, _J, _d = scipy.optimize.fmin_l_bfgs_b(logreg_obj, np.zeros(DTR.shape[0] + 1), approx_grad=True)
+    weights = minimizer[0:DTR.shape[0]]
+    bias = minimizer[-1]
+    scores = np.dot(weights.T, DTE) + bias
+    return scores
+
+
+def center_data(data):
+    """
+    Center the data by subtracting the mean of each column.
+
+    Args:
+        data (numpy.ndarray): Input data array with shape (n_features, n_samples).
+
+    Returns:
+        numpy.ndarray: Centered data array with the same shape as the input.
+    """
+    mean = np.mean(data, axis=1, keepdims=True)
+    centered_data = data - mean
+    return centered_data
+
+
+def standardize_data(data):
+    """
+    Standardize the data by dividing each feature by its standard deviation.
+
+    Args:
+        data (numpy.ndarray): Input data array with shape (n_features, n_samples).
+
+    Returns:
+        numpy.ndarray: Standardized data array with the same shape as the input.
+    """
+    std = np.std(data, axis=1, keepdims=True)
+    standardized_data = data / std
+    return standardized_data
+
+
+def whiten_data(data):
+    """
+    Whiten the data by normalizing variances and making features uncorrelated.
+
+    Args:
+        data (numpy.ndarray): Input data array with shape (n_features, n_samples).
+
+    Returns:
+        numpy.ndarray: Whitened data array with the same shape as the input.
+    """
+    # Compute the covariance matrix
+    cov = np.cov(data)
+
+    # Perform eigenvalue decomposition
+    eigenvalues, eigenvectors = np.linalg.eigh(cov)
+
+    # Compute the whitening matrix
+    whitening_matrix = np.diag(1.0 / np.sqrt(eigenvalues))
+
+    # Apply the whitening transformation
+    whitened_data = np.dot(whitening_matrix, eigenvectors.T).dot(data)
+
+    return whitened_data
+
+
+def l2_normalize_data(data):
+    """
+    Perform L2 (length) normalization on the data.
+
+    Args:
+        data (numpy.ndarray): Input data array with shape (n_features, n_samples).
+
+    Returns:
+        numpy.ndarray: L2 normalized data array with the same shape as the input.
+    """
+    norms = np.linalg.norm(data, axis=0)
+    normalized_data = data / norms
+    return normalized_data
+
+
+def z_norm(data):
+    return standardize_data(center_data(data))
 
 if __name__ == "__main__":
     print("This is mlpr.py")
