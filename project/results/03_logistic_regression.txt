@@ -1,0 +1,36 @@
+Log-Reg
+Lambda		minDCF(π̃=0.5)
+1e-05		0.114
+0.0001		0.114
+0.001		0.115
+0.01		0.115
+0.1		0.113
+1		0.128
+
+Log-Reg (z-norm)
+Lambda		minDCF(π̃=0.5)
+1e-05		0.115
+0.0001		0.116
+0.001		0.115
+0.01		0.128
+0.1		0.202
+1		0.331
+
+# The difference is negligible however we choose log-reg model without z-norm with lambda 1e-4
+
+different pi_t values
+(no z-norm) Log-Reg with Lambda = 1e-4
+π_t		minDCF(π̃=0.5)
+0.1		0.116
+0.5		0.114
+0.9		0.115
+
+different pca_values
+(no z-norm) Log-Reg with Lambda = 1e-4
+PCA		minDCF(π̃=0.5)
+-		0.114
+11		0.123
+10		0.158
+9		0.174
+
+

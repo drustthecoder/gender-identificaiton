@@ -317,13 +317,23 @@ class LogisticRegressionModel:
 def confusion_matrix_binary(predictions, true_labels):
     assert len(predictions) == len(true_labels), "Input lists must have the same length."
 
-    matrix = np.zeros((2, 2), dtype=int)
+    # matrix = np.zeros((2, 2), dtype=int)
+    #
+    # for pred, true_label in zip(predictions, true_labels):
+    #     matrix[pred, true_label] += 1
+    #
+    # return matrix
+    # Count the occurrences of each unique combination of true labels and predictions
 
-    for pred, true_label in zip(predictions, true_labels):
-        matrix[pred, true_label] += 1
+    # optimized version
+
+    # Count the occurrences of each unique combination of true labels and predictions
+    counts = np.bincount(true_labels + 2 * predictions, minlength=4)
+
+    # Reshape the count array into a 2x2 confusion matrix
+    matrix = counts.reshape((2, 2))
 
     return matrix
-
 
 def compute_optimal_bayes_decisions(log_likelihoods, cost_params):
     # Computes optimal Bayes decisions based on
@@ -360,7 +370,8 @@ def compute_DCF_from_conf_mat(conf_mat, cost_params):
 def compute_min_DCF(scores, true_labels, cost_params):
     min_dcf = float('inf')
     # dcf_list = []
-    for threshold in sorted(scores):
+    sorted_scores = np.sort(scores)
+    for threshold in sorted_scores:
         predictions = np.array([0 if llr <= threshold else 1 for llr in scores])
         conf_mat = confusion_matrix_binary(predictions, true_labels)
         dcf = compute_DCF_from_conf_mat(conf_mat, cost_params)

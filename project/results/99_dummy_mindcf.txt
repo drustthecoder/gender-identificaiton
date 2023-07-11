@@ -1,0 +1,2 @@
+def compute_min_DCF(scores, true_labels, cost_params):
+    return round(random.random(), 3)
