@@ -12,3 +12,5 @@ svm = [0.213, 0.167, 0.15, 0.142, 0.137, 0.139, 0.204, 0.254]
 
 
 we try other priors at the end
+
+try pca

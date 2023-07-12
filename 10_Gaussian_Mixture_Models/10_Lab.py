@@ -27,3 +27,5 @@ while i < 512:
     i *= 2
     gmm_2x = lbg_double_clusters_gmm(gmm_calculated)
     gmm_calculated = expectation_maximization_gmm(samples_4_d, gmm_2x, diagCov=False, nEMIters=10, tiedCov=False)
+    # scores = logpdf_gmm(samples_4_d, gmm_calculated)
+    # compute_min_DCF(scores, )

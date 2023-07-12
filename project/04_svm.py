@@ -12,8 +12,8 @@ pi_tilde_str = '\u03C0\u0303'  # Combining U+0303 TILDE after U+03C0 PI
 
 data, labels = load_data("data/Test.txt")
 # z_data = z_norm(data)
-results = []
-mean_results = []
+
+mean_mindcfs = []
 cost_list = list(10 ** i for i in range(-5, 3))
 app = (0.5, 1, 1)
 k = 5
@@ -25,43 +25,67 @@ pi = pi_emp
 print(f"pi = {pi}")
 
 
-for idx, label in enumerate(["Poly(2)", "Poly(2) (z-norm)"]):
+mindcfs_to_be_averaged = []
+for idx, label in enumerate(["Linear", "Linear (z-norm)"]):
     print(label)
+    mean_mindcfs = []
     for c in tqdm(cost_list):
+        mindcfs_to_be_averaged = []
         for num_fold in list(range(1, k+1)):
             train_data, train_labels, test_data, test_labels = get_fold_data(data, labels, k, num_fold)
             if idx == 1:
                 train_data, test_data = znorm(train_data, test_data)
-            # s = SupportVectorMachines(c, "linear", pi)
+            s = SupportVectorMachines(c, "linear", pi)
+            s.train(train_data, train_labels)
+            scores = s.compute_scores(test_data)
+            mindcf = compute_min_DCF(scores, test_labels, app)
+            mindcfs_to_be_averaged.append(mindcf)
+        mean = round(np.array(mindcfs_to_be_averaged).mean(), 3)
+        mean_mindcfs.append(mean)
+    print(label)
+    print(mean_mindcfs)
+
+
+for idx, label in enumerate(["Poly(2)", "Poly(2) (z-norm)"]):
+    print(label)
+    mean_mindcfs = []
+    for c in tqdm(cost_list):
+        mindcfs_to_be_averaged = []
+        for num_fold in list(range(1, k+1)):
+            train_data, train_labels, test_data, test_labels = get_fold_data(data, labels, k, num_fold)
+            if idx == 1:
+                train_data, test_data = znorm(train_data, test_data)
             s = SupportVectorMachines(c, "polynomial", pi, d=2)
             s.train(train_data, train_labels)
             scores = s.compute_scores(test_data)
             mindcf = compute_min_DCF(scores, test_labels, app)
-            results.append(mindcf)
-        mean = round(np.array(results).mean(), 3)
-        mean_results.append(mean)
+            mindcfs_to_be_averaged.append(mindcf)
+        mean = round(np.array(mindcfs_to_be_averaged).mean(), 3)
+        mean_mindcfs.append(mean)
     print(label)
-    print(mean_results)
-    mean_results = []
+    print(mean_mindcfs)
+
+
 
 for idx, label in enumerate(["Poly(3)", "Poly(3) (z-norm)"]):
     print(label)
+    mean_mindcfs = []
     for c in tqdm(cost_list):
+        mindcfs_to_be_averaged = []
         for num_fold in list(range(1, k+1)):
             train_data, train_labels, test_data, test_labels = get_fold_data(data, labels, k, num_fold)
             if idx == 1:
                 train_data, test_data = znorm(train_data, test_data)
-            # s = SupportVectorMachines(c, "linear", pi)
             s = SupportVectorMachines(c, "polynomial", pi, d=3)
             s.train(train_data, train_labels)
             scores = s.compute_scores(test_data)
             mindcf = compute_min_DCF(scores, test_labels, app)
-            results.append(mindcf)
-        mean = round(np.array(results).mean(), 3)
-        mean_results.append(mean)
+            mindcfs_to_be_averaged.append(mindcf)
+        mean = round(np.array(mindcfs_to_be_averaged).mean(), 3)
+        mean_mindcfs.append(mean)
     print(label)
-    print(mean_results)
-    mean_results = []
+    print(mean_mindcfs)
+
 
 for g, label in enumerate([
     (10**-3, "SVM - RBF (log γ = −3)"),
@@ -69,22 +93,21 @@ for g, label in enumerate([
     (10**-5, "SVM - RBF (log γ = −5)")
 ]):
     print(label)
+    mean_mindcfs = []
     for c in tqdm(cost_list):
+        mindcfs_to_be_averaged = []
         for num_fold in list(range(1, k+1)):
             train_data, train_labels, test_data, test_labels = get_fold_data(data, labels, k, num_fold)
-            if idx == 1:
-                train_data, test_data = znorm(train_data, test_data)
-            # s = SupportVectorMachines(c, "linear", pi)
             s = SupportVectorMachines(c, "RBF", pi, gamma=g)
             s.train(train_data, train_labels)
             scores = s.compute_scores(test_data)
             mindcf = compute_min_DCF(scores, test_labels, app)
-            results.append(mindcf)
-        mean = round(np.array(results).mean(), 3)
-        mean_results.append(mean)
+            mindcfs_to_be_averaged.append(mindcf)
+        mean = round(np.array(mindcfs_to_be_averaged).mean(), 3)
+        mean_mindcfs.append(mean)
     print(label)
-    print(mean_results)
-    mean_results = []
+    print(mean_mindcfs)
+
 
 
 # Plot plots
