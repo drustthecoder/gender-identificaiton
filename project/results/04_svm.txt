@@ -1,0 +1,14 @@
+# linear
+# poly(2) vs. poly(2) (z-norm), axis = C, mindcf
+# poly(3) vs. poly(3) (z-norm) against best values of previous, axis=c, mindcf
+# rbf lambda vs. lambda, axis= C, mindcf
+# pca on best
+# rebalancing
+
+classes balanced with empirical prior of dataset
+
+smv_z_norm = [0.275, 0.29, 0.28, 0.267, 0.255, 0.245, 0.236, 0.237]
+svm = [0.213, 0.167, 0.15, 0.142, 0.137, 0.139, 0.204, 0.254]
+
+
+we try other priors at the end

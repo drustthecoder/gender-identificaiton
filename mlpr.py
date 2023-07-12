@@ -850,8 +850,53 @@ def l2_normalize_data(data):
     return normalized_data
 
 
-def z_norm(data):
-    return standardize_data(center_data(data))
+def znorm(DTR, DTE):
+    mu_DTR = mcol(DTR.mean(1))
+    std_DTR = mcol(DTR.std(1))
+
+    DTR_z = (DTR - mu_DTR) / std_DTR
+    DTE_z = (DTE - mu_DTR) / std_DTR
+    return DTR_z, DTE_z
+
+def train_SVM_linear(DTR, LTR, C, K=1):
+    DTREXT = np.vstack([DTR, K * np.ones((1, DTR.shape[1]))])
+    Z = np.zeros(LTR.shape)
+    Z[LTR == 1] = 1
+    Z[LTR == 0] = -1
+
+    H = np.dot(DTREXT.T, DTREXT)
+    H = mcol(Z) * mrow(Z) * H
+
+    def JPrimal(w):
+        S = np.dot(mrow(w), DTREXT)
+        loss = np.maximum(np.zeros(S.shape), 1 - Z * S).sum()
+        return 0.5 * np.linalg.norm(w) ** 2 + C * loss
+
+    alphaStar, JDual, LDual = calculate_lbgf(H, DTR, C)
+    wStar = np.dot(DTREXT, mcol(alphaStar) * mcol(Z))
+    return wStar, JPrimal(wStar)
+
+def calculate_lbgf(H, DTR, C):
+    def JDual(alpha):
+        Ha = np.dot(H, mcol(alpha))
+        aHa = np.dot(mrow(alpha), Ha)
+        a1 = alpha.sum()
+        return -0.5 * aHa.ravel() + a1, -Ha.ravel() + np.ones(alpha.size)
+
+    def LDual(alpha):
+        loss, grad = JDual(alpha)
+        return -loss, -grad
+
+    alphaStar, _x, _y = scipy.optimize.fmin_l_bfgs_b(
+        LDual,
+        np.zeros(DTR.shape[1]),
+        bounds=[(0, C)] * DTR.shape[1],
+        factr=1.0,
+        maxiter=10000,
+        maxfun=100000,
+    )
+
+    return alphaStar, JDual, LDual
 
 if __name__ == "__main__":
     print("This is mlpr.py")
