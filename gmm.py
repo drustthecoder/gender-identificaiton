@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jul 2 11:12:10 2022
-
-@author: gabri
-"""
-
 import numpy
 import scipy
 import scipy.special

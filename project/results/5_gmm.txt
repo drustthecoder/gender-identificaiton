@@ -1,0 +1,4 @@
+full untied: num_components = [2, 4, 8], min_dcfs = [0.07, 0.051, 0.061]
+full tied: num_components=4, dcf=0.051
+native untied: num_components=4, mindcf=0.17
+naive tied: num_components=4, mindcf=0.17
