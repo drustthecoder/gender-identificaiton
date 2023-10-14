@@ -1,16 +1,10 @@
 # Gender Identification
 
-A machine learning binary classification task
+This project consists of a gender identification task from high-level features.
 
 Author: Shayan Taghinezhad Roudbaraki – 301425
 
 Course: 01URTOV - Machine Learning and Pattern Recognition
-
-Project
-============
-This project consists in gender identification from high-level features. The dataset consists of male and female speaker embeddings extracted from face images. A speaker embedding is a small-dimensional, fixed sized representation of an image. Features are continuous values that represent a point in the mdimensional embedding space. The embeddings have already been computed, you have to classify them.
-
-Each sample consists of 12 continuous features. Classes are not balanced. To make the problem more tractable1, and to avoid potential privacy issues, the dataset consists of synthetic samples that behave similarly to real embeddings. The primary metric for the dataset is normalized actual DCF with (πT = 0:5; Cfn = 1; Cfp = 1). Expect costs in the order of 0:1 (error rate in the order of 10%) or less. Refer to the description of the project for more information.
 
 Introduction
 ============
